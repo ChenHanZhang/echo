@@ -30,6 +30,7 @@ dependencies {
     implementation project(':echo-pubsub-core')
     implementation project(':echo-pubsub-aws')
     implementation project(':echo-pubsub-google')
+    implementation project(':echo-pubsub-alicloud')
     implementation project(':echo-telemetry')
     implementation "io.spinnaker.fiat:fiat-api:$fiatVersion"
     implementation "io.spinnaker.fiat:fiat-core:$fiatVersion"
