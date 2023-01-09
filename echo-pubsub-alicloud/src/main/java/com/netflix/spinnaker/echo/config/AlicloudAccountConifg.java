@@ -18,9 +18,11 @@ package com.netflix.spinnaker.echo.config;
 
 import com.aliyun.mns.client.CloudAccount;
 import com.aliyun.mns.common.utils.ServiceSettings;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@ConditionalOnExpression("${pubsub.enabled:false} && ${pubsub.alicloud.enabled:false}")
 public class AlicloudAccountConifg {
 
   CloudAccount account =
