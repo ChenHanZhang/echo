@@ -42,9 +42,11 @@ import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnExpression("${pubsub.enabled:false} && ${pubsub.alicloud.enabled:false}")
 public class MNSSubscriberProvider {
 
   private static final Logger log = LoggerFactory.getLogger(MNSSubscriberProvider.class);
