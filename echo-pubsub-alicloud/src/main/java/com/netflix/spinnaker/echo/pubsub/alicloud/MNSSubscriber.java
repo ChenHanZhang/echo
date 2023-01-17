@@ -33,8 +33,11 @@ import com.netflix.spinnaker.echo.pubsub.PubsubMessageHandler;
 import com.netflix.spinnaker.echo.pubsub.model.PubsubSubscriber;
 import com.netflix.spinnaker.echo.pubsub.utils.NodeIdentity;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import org.apache.commons.codec.binary.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
@@ -50,6 +53,7 @@ public class MNSSubscriber implements Runnable, PubsubSubscriber {
 
   private static final PubsubSystem pubsubSystem = PubsubSystem.ALICLOUD;
   private static final int MNS_MAX_NUMBER_OF_MESSAGES = 10;
+  private static final String DEFAULT_CHARSET = "UTF-8";
 
   private final ObjectMapper objectMapper;
   private final AlicloudPubsubProperties.AlicloudPubsubSubscription subscription;
@@ -170,11 +174,25 @@ public class MNSSubscriber implements Runnable, PubsubSubscriber {
     try {
       String messageId = message.getMessageId();
       // Try to parse message body, echo assume it's a JSON-formatted string.
+      // The message body may be derived from the topic and therefore needs to be parsed.
       String messageBody = unmarshalMessageBody(getOriginalMessageBody(message));
+      // The data in the message body may be encoded.
+      String messageBodyDecoded = getDecodedMessageBody(messageBody);
       /// Try to parse message payload.
-      String messagePayload = parseMessagePayload(messageBody);
+      String messagePayload = parseMessagePayload(messageBodyDecoded);
       // Try to parse message attributes.
-      Map<String, String> messageAttributes = parseMessageAttributes(messageBody);
+      HashMap<String, String> messageAttributes =
+          new HashMap<>(parseMessageAttributes(messageBodyDecoded));
+
+      // When message attributes and message carriers cannot be resolved,
+      // the information passed should come from a third party system.
+      if (CollectionUtils.isEmpty(messageAttributes) && messagePayload.equals(messageBodyDecoded)) {
+        HashMap<String, String> wrapper = gson.fromJson(messagePayload, HashMap.class);
+        messageAttributes.putAll(
+            wrapper.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> String.valueOf(e.getValue()))));
+        // messagePayload = gson.toJson(messageAttributes);
+      }
 
       // TODO: Topic message attributes maybe stored within the Queue message body. Add them to
       // other attributes.
@@ -222,6 +240,28 @@ public class MNSSubscriber implements Runnable, PubsubSubscriber {
     return messageBody;
   }
 
+  // We assume that the body of the message is a json string, if not, try to decode by base64.
+  private String getDecodedMessageBody(String messagePayload) {
+
+    try {
+      Map wrapper = gson.fromJson(messagePayload, Map.class);
+      if (wrapper != null && !wrapper.isEmpty()) {
+        return messagePayload;
+      }
+    } catch (Exception e) {
+      // While parse error, it may be encoded by Base64 encoder.
+    }
+
+    try {
+      messagePayload =
+          new String(Base64.decodeBase64(messagePayload), MNSSubscriber.DEFAULT_CHARSET);
+    } catch (UnsupportedEncodingException e) {
+      // If a processing error occurs, it may be resolved by the upper application.
+    }
+
+    return messagePayload;
+  }
+
   /**
    * Messages in the queue may originate from topics, so before parse the message we try to
    * unmarshal messageBody.
@@ -249,13 +289,16 @@ public class MNSSubscriber implements Runnable, PubsubSubscriber {
   private String parseMessagePayload(String messageBody) {
     try {
       MessageBodyWrapper messageBodyWrapper = gson.fromJson(messageBody, MessageBodyWrapper.class);
-      return messageBodyWrapper.getMessagePayload();
+      if (messageBodyWrapper.getMessagePayload() != null) {
+        return messageBodyWrapper.getMessagePayload();
+      }
     } catch (Exception e) {
       logger.error(
           "Unable unmarshal MessageBodyWrapper. Unknown message content. (contnet: {})",
           messageBody,
           e);
     }
+    // Messages delivered from other systems remain in their original format.
     return messageBody;
   }
 
@@ -266,7 +309,9 @@ public class MNSSubscriber implements Runnable, PubsubSubscriber {
   private Map<String, String> parseMessageAttributes(String messageBody) {
     try {
       MessageBodyWrapper wrapper = gson.fromJson(messageBody, MessageBodyWrapper.class);
-      if (wrapper != null && !wrapper.getMessageAttribute().isEmpty()) {
+      if (wrapper != null
+          && wrapper.getMessageAttribute() != null
+          && !wrapper.getMessageAttribute().isEmpty()) {
         return wrapper.getMessageAttribute();
       }
     } catch (Exception e) {

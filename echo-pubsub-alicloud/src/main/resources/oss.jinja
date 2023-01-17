@@ -1,0 +1,9 @@
+[
+{% for event in events %}
+  {
+    "reference": "oss://{{ event.oss.bucket.name }}/{{ event.oss.object.key }}",
+    "name": "oss://{{ event.oss.bucket.name }}/{{ event.oss.object.key }}",
+    "type": "oss/object"
+  } {% if not loop.last %}, {% endif %}
+{% endfor %}
+]

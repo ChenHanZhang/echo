@@ -144,6 +144,7 @@ public class AlicloudPubsubProperties {
   }
 
   public static enum NotifyContentFormat {
+    OSS("/oss.jinja"),
     CUSTOM(),
     NONE();
 
