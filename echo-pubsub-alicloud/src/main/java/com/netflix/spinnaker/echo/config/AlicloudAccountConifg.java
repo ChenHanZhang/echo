@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.echo.config;
 
 import com.aliyun.mns.client.CloudAccount;
-import com.aliyun.mns.common.utils.ServiceSettings;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Configuration;
 
@@ -25,13 +24,18 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnExpression("${pubsub.enabled:false} && ${pubsub.alicloud.enabled:false}")
 public class AlicloudAccountConifg {
 
-  CloudAccount account =
-      new CloudAccount(
-          ServiceSettings.getMNSAccessKeyId(),
-          ServiceSettings.getMNSAccessKeySecret(),
-          ServiceSettings.getMNSAccountEndpoint());
+  //  CloudAccount account =
+  //      new CloudAccount(
+  //          ServiceSettings.getMNSAccessKeyId(),
+  //          ServiceSettings.getMNSAccessKeySecret(),
+  //          ServiceSettings.getMNSAccountEndpoint());
+  //
+  //  public CloudAccount getDefaultAccount() {
+  //    return account;
+  //  }
 
-  public CloudAccount getDefaultAccount() {
-    return account;
+  public CloudAccount newAccount(
+      String accessKeyId, String accessKeySecret, String accountEndpoint) {
+    return new CloudAccount(accessKeyId, accessKeySecret, accountEndpoint);
   }
 }

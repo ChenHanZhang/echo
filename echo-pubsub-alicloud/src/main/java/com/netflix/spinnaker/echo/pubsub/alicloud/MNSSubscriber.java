@@ -140,7 +140,7 @@ public class MNSSubscriber implements Runnable, PubsubSubscriber {
       // Make the queue subscribe messages produced from topic.
       SubscriptionMeta subMeta = new SubscriptionMeta();
       subMeta.setSubscriptionName(subscription.getQueueName());
-      subMeta.setEndpoint(subscription.endpointPathFormat());
+      subMeta.setEndpoint(subscription.getQueueEndpointFormat());
       subMeta.setNotifyContentFormat(SubscriptionMeta.NotifyContentFormat.JSON);
       cloudTopic.subscribe(subMeta);
     }

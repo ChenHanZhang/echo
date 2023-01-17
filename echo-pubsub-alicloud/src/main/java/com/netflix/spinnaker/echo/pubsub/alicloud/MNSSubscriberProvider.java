@@ -98,6 +98,7 @@ public class MNSSubscriberProvider {
         .forEach(
             (AlicloudPubsubProperties.AlicloudPubsubSubscription subscription) -> {
               log.info("Bootstrapping Queue for Topic: {}", subscription.getName());
+              subscription.init();
 
               Optional<MessageArtifactTranslator> messageArtifactTranslator = Optional.empty();
               if (subscription.getMessageFormat()
@@ -108,7 +109,11 @@ public class MNSSubscriberProvider {
               }
               EventCreator eventCreator = new PubsubEventCreator(messageArtifactTranslator);
 
-              CloudAccount account = cloudAccount.getDefaultAccount();
+              CloudAccount account =
+                  cloudAccount.newAccount(
+                      subscription.getAccessKeyId(),
+                      subscription.getAccessKeySecret(),
+                      subscription.getAccountEndpointFormat());
               MNSClient mnsClient = account.getMNSClient();
 
               MNSSubscriber worker =

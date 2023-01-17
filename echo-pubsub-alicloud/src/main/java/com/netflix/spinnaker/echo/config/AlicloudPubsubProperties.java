@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.echo.config;
 
+import com.aliyun.mns.common.utils.ServiceSettings;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -43,14 +44,17 @@ public class AlicloudPubsubProperties {
     /** The name of subscription. */
     @NotEmpty private String name;
 
-    /** The region of mns service. */
-    @NotEmpty private String regionId;
-
-    /** The account id of your alibaba cloud. */
-    @NotEmpty private String accountId;
-
     /** The name of mns queue. */
     @NotEmpty private String queueName;
+
+    /** The region of mns service. */
+    private String regionId;
+
+    /** The account info of your alibaba cloud. */
+    private String accountId;
+
+    private String accessKeyId;
+    private String accessKeySecret;
 
     /** The name of mns topic, which the queue subscribed. */
     private String topicName;
@@ -77,19 +81,23 @@ public class AlicloudPubsubProperties {
     public AlicloudPubsubSubscription() {}
 
     public AlicloudPubsubSubscription(
-        String regionId,
-        String accountId,
         String name,
         String queueName,
+        String regionId,
+        String accountId,
+        String accessKeyId,
+        String accessKeySecret,
         String topicName,
         String templatePath,
         NotifyContentFormat messageFormat,
         String alternateIdInMessageAttributes,
         Integer dedupeRetentionSeconds) {
-      this.regionId = regionId;
-      this.accountId = accountId;
       this.name = name;
       this.queueName = queueName;
+      this.regionId = regionId;
+      this.accountId = accountId;
+      this.accessKeyId = accessKeyId;
+      this.accessKeySecret = accessKeySecret;
       this.topicName = topicName;
       this.templatePath = templatePath;
       this.messageFormat = messageFormat;
@@ -102,10 +110,36 @@ public class AlicloudPubsubProperties {
           log.warn("Ignoring dedupeRetentionSeconds invalid value of " + dedupeRetentionSeconds);
         }
       }
+      this.init();
     }
 
-    public String endpointPathFormat() {
+    public void init() {
+      // While account and region information are not configured, using the default configuration
+      // file.
+      if (StringUtils.isEmpty(this.accountId) || StringUtils.isEmpty(this.regionId)) {
+        String accountEndpoint = ServiceSettings.getMNSAccountEndpoint();
+        if (StringUtils.isEmpty(accountEndpoint)) {
+          log.error(".aliyun-mns.properties not configured correctly!");
+        }
+        String[] accountEndpointInfo =
+            accountEndpoint.replace("https://", "").replace("http://", "").split("\\.");
+        this.accountId = accountEndpointInfo[0];
+        this.regionId = accountEndpointInfo[2];
+      }
+      if (StringUtils.isEmpty(this.accessKeyId)) {
+        this.accessKeyId = ServiceSettings.getMNSAccessKeyId();
+      }
+      if (StringUtils.isEmpty(this.accessKeySecret)) {
+        this.accessKeySecret = ServiceSettings.getMNSAccessKeySecret();
+      }
+    }
+
+    public String getQueueEndpointFormat() {
       return String.format("acs:mns:%s:%s:queues/%s", regionId, accountId, queueName);
+    }
+
+    public String getAccountEndpointFormat() {
+      return String.format("http://%s.mns.%s.aliyuncs.com", accountId, regionId);
     }
 
     private NotifyContentFormat determineMessageFormat() {
